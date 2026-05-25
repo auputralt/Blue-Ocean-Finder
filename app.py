@@ -10,7 +10,7 @@ from typing import Optional
 
 import gradio as gr
 
-from config import validate_config
+from config import validate_config, MODEL_OPTIONS
 from database import init_db, save_report, list_reports, get_report, toggle_favorite, delete_report
 from enhancer import enhance_prompt
 from researcher import research_all
@@ -486,6 +486,7 @@ def create_app() -> gr.Blocks:
         s_location   = gr.State("")     # cached input
         s_report_id  = gr.State(None)   # DB row id for current report
         s_selected_row = gr.State(None) # selected history row data
+        s_model      = gr.State("Auto (fallback chain)")  # selected LLM model
 
         # ── Hero ─────────────────────────────────────────
         _logo_img = f'<img src="data:image/png;base64,{_LOGO_B64}" alt="Blue Ocean Finder" class="hero-logo">' if _LOGO_B64 else ""
@@ -512,6 +513,13 @@ def create_app() -> gr.Blocks:
                 label="Location / Market",
                 placeholder="e.g., Southeast Asia, Brazil, Germany …",
                 scale=3,
+            )
+            inp_model = gr.Dropdown(
+                choices=MODEL_OPTIONS,
+                value="Auto (fallback chain)",
+                label="LLM Model",
+                scale=2,
+                allow_custom_value=True,
             )
         btn_find = gr.Button(
             "🌊  Find Blue Oceans",
@@ -631,7 +639,7 @@ def create_app() -> gr.Blocks:
         # ==================================================
 
         # ── STEP 1: Enhance prompt ───────────────────────
-        async def step1_enhance(industry: str, location: str):
+        async def step1_enhance(industry: str, location: str, model_choice: str):
             if not industry or not location or not industry.strip() or not location.strip():
                 yield {
                     status: gr.update(
@@ -646,6 +654,8 @@ def create_app() -> gr.Blocks:
                 }
                 return
 
+            pref = model_choice if model_choice and model_choice != "Auto (fallback chain)" else None
+
             yield {
                 status: gr.update(
                     value="🔍  **Phase 2/7** — Enhancing research prompt with AI …",
@@ -656,7 +666,7 @@ def create_app() -> gr.Blocks:
             }
 
             try:
-                enhanced = await enhance_prompt(industry.strip(), location.strip())
+                enhanced = await enhance_prompt(industry.strip(), location.strip(), preferred_model=pref)
             except Exception as exc:
                 yield {
                     status: gr.update(
@@ -682,11 +692,12 @@ def create_app() -> gr.Blocks:
                 s_enhanced: enhanced,
                 s_industry: industry.strip(),
                 s_location: location.strip(),
+                s_model: model_choice,
             }
 
         btn_find.click(
             fn=step1_enhance,
-            inputs=[inp_industry, inp_location],
+            inputs=[inp_industry, inp_location, inp_model],
             outputs=[
                 status,
                 col_enhanced,
@@ -694,12 +705,14 @@ def create_app() -> gr.Blocks:
                 s_enhanced,
                 s_industry,
                 s_location,
+                s_model,
             ],
         )
 
         # ── STEP 2: Parallel research + synthesis ────────
         async def step2_research(
-            industry: str, location: str, enhanced: dict, edited_brief: str
+            industry: str, location: str, enhanced: dict, edited_brief: str,
+            model_choice: str,
         ):
             if not enhanced:
                 yield {status: gr.update(
@@ -750,9 +763,12 @@ def create_app() -> gr.Blocks:
 
             enhanced_query = enhanced.get("enhanced_query", "")
 
+            pref = model_choice if model_choice and model_choice != "Auto (fallback chain)" else None
+
             try:
                 synthesis = await synthesize(
-                    industry, location, enhanced_query, research
+                    industry, location, enhanced_query, research,
+                    preferred_model=pref,
                 )
             except Exception as exc:
                 yield {
@@ -792,7 +808,7 @@ def create_app() -> gr.Blocks:
 
         btn_confirm.click(
             fn=step2_research,
-            inputs=[s_industry, s_location, s_enhanced, txt_enhanced],
+            inputs=[s_industry, s_location, s_enhanced, txt_enhanced, s_model],
             outputs=[
                 status,
                 col_results,
@@ -828,6 +844,7 @@ def create_app() -> gr.Blocks:
             synthesis: str,
             enhanced: dict,
             research: list,
+            model_choice: str,
         ):
             if not question.strip():
                 yield {chatbot: chat_history, inp_question: ""}
@@ -842,6 +859,7 @@ def create_app() -> gr.Blocks:
             )
             yield {chatbot: chat_history, inp_question: ""}
 
+            pref = model_choice if model_choice and model_choice != "Auto (fallback chain)" else None
             enhanced_query = enhanced.get("enhanced_query", "") if enhanced else ""
             try:
                 answer = await follow_up(
@@ -851,6 +869,7 @@ def create_app() -> gr.Blocks:
                     synthesis,
                     enhanced_query,
                     research or [],
+                    preferred_model=pref,
                 )
             except Exception as exc:
                 answer = f"Error generating response: {exc}"
@@ -869,6 +888,7 @@ def create_app() -> gr.Blocks:
                 s_synthesis,
                 s_enhanced,
                 s_research,
+                s_model,
             ],
             outputs=[chatbot, inp_question],
         )
@@ -883,6 +903,7 @@ def create_app() -> gr.Blocks:
                 s_synthesis,
                 s_enhanced,
                 s_research,
+                s_model,
             ],
             outputs=[chatbot, inp_question],
         )
