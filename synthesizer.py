@@ -423,6 +423,8 @@ Every sentence must earn its place. No filler. No vagueness. Maximum signal."""
         )
         resp.raise_for_status()
         raw_synthesis = resp.json()["choices"][0]["message"]["content"]
+        if not raw_synthesis:
+            raise ValueError("LLM returned empty synthesis. Model may be rate-limited. Try again.")
         return _reorder_by_score(raw_synthesis)
 
 
@@ -511,4 +513,7 @@ financial estimates with stated assumptions."""
             },
         )
         resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+        content = resp.json()["choices"][0]["message"]["content"]
+        if not content:
+            raise ValueError("LLM returned empty response. Model may be rate-limited. Try again.")
+        return content

@@ -94,6 +94,8 @@ Return ONLY the JSON object, nothing else."""
         )
         resp.raise_for_status()
         raw = resp.json()["choices"][0]["message"]["content"]
+        if not raw:
+            raise ValueError("LLM returned empty response. Model may be rate-limited or unavailable. Try again in a moment.")
 
     # ── Parse JSON (handle fenced code blocks gracefully) ──
     cleaned = raw.strip()
