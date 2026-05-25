@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import httpx
 
 from config import OPENROUTER_API_KEY, OPENROUTER_MODEL, OPENROUTER_URL
@@ -26,6 +28,77 @@ def _pack_research(research_data: list[dict]) -> str:
             parts.append(f"  - [{score:.2f}] {title}\n    URL: {url}\n    {snippet}")
 
     return "\n".join(parts)
+
+
+def _reorder_by_score(synthesis: str) -> str:
+    """
+    Parse the Strategic Prioritization Matrix from the synthesis.
+    If Opportunity 1 doesn't have the highest total score, reorder all
+    opportunity sections so the best one comes first.
+    """
+    # Extract scores from the prioritization matrix
+    score_pattern = re.compile(
+        r"\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*\*?\*(\d+)",
+    )
+    scores = {}
+    for m in score_pattern.finditer(synthesis):
+        rank_in_table = int(m.group(1))
+        opp_name = m.group(2).strip()
+        total = int(m.group(8))
+        scores[rank_in_table] = {"name": opp_name, "total": total}
+
+    if not scores:
+        return synthesis
+
+    # Find the matrix and post-matrix content
+    matrix_match = re.search(r"## 📊 Strategic Prioritization Matrix", synthesis)
+    if not matrix_match:
+        return synthesis
+
+    pre_matrix = synthesis[:matrix_match.start()]
+    post_matrix = synthesis[matrix_match.start():]
+
+    # Parse opportunity sections from pre_matrix
+    opp_pattern = re.compile(r"(## Opportunity (\d+):.+?)(?=---\s*\n\s*##\s*Opportunity\s+\d+|## 📊|$)", re.DOTALL)
+    opp_map = {}
+    for m in opp_pattern.finditer(pre_matrix):
+        opp_num = int(m.group(2))
+        opp_map[opp_num] = m.group(1)
+
+    if not opp_map or len(opp_map) < 2:
+        return synthesis
+
+    # Sort by total score descending (from the matrix)
+    sorted_opps = sorted(scores.items(), key=lambda x: x[1]["total"], reverse=True)
+
+    # Check if already correctly ordered
+    already_ordered = all(
+        sorted_opps[i][0] == i + 1 for i in range(min(len(sorted_opps), len(opp_map)))
+    )
+    if already_ordered:
+        return synthesis
+
+    # Rebuild: renumber opportunities in order of their score
+    new_pre = ""
+    for new_rank, (old_rank, info) in enumerate(sorted_opps, 1):
+        if old_rank in opp_map:
+            section = opp_map[old_rank]
+            # Replace old opportunity number with new rank
+            section = re.sub(
+                rf"## Opportunity {old_rank}:",
+                f"## Opportunity {new_rank}:",
+                section,
+            )
+            new_pre += "---\n\n" + section + "\n\n"
+
+    # Update the matrix table to reflect new ranking
+    new_post = post_matrix
+    for new_rank, (old_rank, info) in enumerate(sorted_opps, 1):
+        if old_rank != new_rank:
+            # Update the rank column in the matrix
+            new_post = new_post.replace(f"| {old_rank} | {info['name']}", f"| {new_rank} | {info['name']}", 1)
+
+    return new_pre + "\n" + new_post
 
 
 async def synthesize(
@@ -68,8 +141,27 @@ RULES — obey ALL of them:
 7. Every financial estimate must include confidence level (High/Medium/Low)
    and the key assumption driving it.
 
+CRITICAL — UNFILTERED TRUTH MODE:
+- Present the REAL opportunities as the data reveals them — no sugarcoating.
+- Report market realities exactly as they are: size, competition, barriers, risks.
+- If an opportunity exists in a gray area (regulatory arbitrage, first-mover in
+  emerging markets, underserved/ignored segments), present it with full honesty.
+- Include both upside AND downside — investors need the complete picture.
+- Do NOT filter, soften, or exclude opportunities because they are unconventional,
+  controversial, or challenge mainstream assumptions.
+- The goal is to find genuine $1M+ opportunities — the kind that are invisible
+  precisely BECAUSE conventional thinking overlooks them.
+- Reference real competitor weaknesses, real market failures, real customer pain.
+  Name names. Quote numbers. Be brutally honest.
+
 OUTPUT FORMAT (strict — follow this EXACTLY):
-Produce exactly **5** Blue Ocean opportunities. For each:
+Produce exactly **5** Blue Ocean opportunities. They MUST be ordered from BEST to
+WORST — Opportunity 1 is the single highest-quality opportunity with the best
+combination of feasibility, market size, speed to revenue, and competitive moat.
+Opportunity 5 is the weakest. Rank them like a venture capitalist would: which
+one would you bet your own money on first?
+
+For each opportunity:
 
 ---
 
@@ -284,6 +376,23 @@ Based SOLELY on the data above, identify 5 genuinely hidden Blue Ocean
 opportunities. Think beyond the obvious. Cross-reference insights across
 branches to find patterns others miss.
 
+RANKING RULE (CRITICAL):
+- Opportunity 1 = THE BEST opportunity (highest overall quality score)
+- Opportunity 2 = second best
+- Opportunity 3 = third best
+- Opportunity 4 = fourth best
+- Opportunity 5 = weakest (still viable, but lowest ranked)
+Score each on: feasibility × market size × speed to revenue × competitive moat × strategic fit.
+The #1 ranked opportunity should be the one a smart entrepreneur would pursue FIRST.
+
+UNFILTERED ANALYSIS REQUIREMENTS:
+- Present raw, honest market reality — no censorship, no bias, no narrative filtering
+- If the data shows an opportunity in a regulatory gray zone, say so plainly
+- If competitors are weak or incompetent, name them and explain why
+- If customers are being exploited or underserved, present the evidence directly
+- Show the $1M+ path wherever the data supports it — conventional wisdom be damned
+- This is private strategy advice worth real money — treat it with that gravity
+
 QUALITY STANDARDS — every opportunity must:
 - Have at least 3 supporting data points from the research
 - Include specific dollar amounts in every financial section
@@ -313,7 +422,8 @@ Every sentence must earn its place. No filler. No vagueness. Maximum signal."""
             },
         )
         resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
+        raw_synthesis = resp.json()["choices"][0]["message"]["content"]
+        return _reorder_by_score(raw_synthesis)
 
 
 async def follow_up(
@@ -340,6 +450,13 @@ The client now has a specific question. Your answer must be:
 3. Evidence-based — reference specific data points from the research
 4. Structured — use headers, tables, and bullet points for clarity
 5. Honest — if data is insufficient, say so and recommend what research to do
+
+UNFILTERED TRUTH MODE:
+- Give the real answer, not the safe answer
+- If an opportunity has a hidden risk others ignore, expose it
+- If a market is being disrupted in ways the mainstream hasn't noticed, say so
+- Present the raw strategic reality — this is private advice worth real money
+- No conventional-wisdom filtering, no media-safe framing
 
 When discussing financials, show your work:
 - State assumptions explicitly
@@ -390,7 +507,7 @@ financial estimates with stated assumptions."""
                     {"role": "user", "content": user_prompt},
                 ],
                 "temperature": 0.2,
-                "max_tokens": 6000,
+                "max_tokens": 8000,
             },
         )
         resp.raise_for_status()

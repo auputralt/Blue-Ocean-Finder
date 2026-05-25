@@ -5,7 +5,7 @@ load_dotenv()
 
 # ── API Keys ───────────────────────────────────────────────
 OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_MODEL: str = os.getenv("OPENROUTER_MODEL", "mistralai/mistral-7b-instruct:free")
+OPENROUTER_MODEL: str = os.getenv("OPENROUTER_MODEL", "openrouter/free")
 TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")
 
 # ── Endpoints ──────────────────────────────────────────────

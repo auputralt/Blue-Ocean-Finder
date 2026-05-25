@@ -13,6 +13,8 @@ pinned: false
 
 Discover uncontested market spaces with AI-powered strategic analysis. This tool produces McKinsey/BCG-grade Blue Ocean Strategy reports — market sizing, unit economics, competitive blind spots, go-to-market roadmaps — all grounded in real-time web research.
 
+**Try it live:** [namaakaisekai-ai-blue-ocean-finder.hf.space](https://namaakaisekai-ai-blue-ocean-finder.hf.space)
+
 ## What It Does
 
 1. **Research Brief Enhancement** — Turns your industry + location into a hypothesis-driven consulting brief
@@ -65,7 +67,7 @@ Copy `.env.example` to `.env` and add your keys:
 cp .env.example .env
 ```
 
-You need two API keys:
+You need two API keys (both have free tiers):
 
 | Key | Get It Free | Used For |
 |-----|------------|----------|
@@ -88,10 +90,18 @@ Open `http://localhost:7860` in your browser.
 4. Wait ~60-90 seconds for 10 parallel searches + synthesis
 5. Read the report, ask follow-up questions, export to PDF/Word/Markdown
 
+## Deployment
+
+### Hugging Face Spaces (Free, Always-On)
+
+1. Create a new [Gradio Space](https://huggingface.co/new-space)
+2. Push this repo to the Space
+3. Add `OPENROUTER_API_KEY` and `TAVILY_API_KEY` as Space Secrets
+
 ## Tech Stack
 
 - **Frontend:** Gradio (dark theme, mobile-responsive CSS)
-- **LLM:** OpenRouter (any model — default: Mistral 7B free tier)
+- **LLM:** OpenRouter (any model — default: free tier)
 - **Search:** Tavily API (advanced search depth)
 - **Storage:** SQLite (local, zero config)
 - **Export:** fpdf2 (PDF), python-docx (Word), native Markdown
