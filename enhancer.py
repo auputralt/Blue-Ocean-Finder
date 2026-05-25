@@ -75,27 +75,35 @@ Return ONLY the JSON object, nothing else."""
 
     user_msg = f"Industry: {industry}\nLocation: {location}"
 
-    async with httpx.AsyncClient(timeout=45.0) as client:
-        resp = await client.post(
-            OPENROUTER_URL,
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": OPENROUTER_MODEL,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_msg},
-                ],
-                "temperature": 0.15,
-                "max_tokens": 1500,
-            },
-        )
-        resp.raise_for_status()
-        raw = resp.json()["choices"][0]["message"]["content"]
-        if not raw:
-            raise ValueError("LLM returned empty response. Model may be rate-limited or unavailable. Try again in a moment.")
+    last_err = None
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=45.0) as client:
+                resp = await client.post(
+                    OPENROUTER_URL,
+                    headers={
+                        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": OPENROUTER_MODEL,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_msg},
+                        ],
+                        "temperature": 0.15,
+                        "max_tokens": 1500,
+                    },
+                )
+                resp.raise_for_status()
+                raw = resp.json()["choices"][0]["message"]["content"]
+                if raw:
+                    break
+                last_err = ValueError(f"LLM returned empty response (attempt {attempt+1}/3). Retrying...")
+        except httpx.HTTPStatusError as exc:
+            last_err = ValueError(f"API error {exc.response.status_code} (attempt {attempt+1}/3): {exc.response.text[:200]}")
+    else:
+        raise last_err or ValueError("LLM returned empty response after 3 attempts. Model may be rate-limited. Try again in a moment.")
 
     # ── Parse JSON (handle fenced code blocks gracefully) ──
     cleaned = raw.strip()

@@ -404,28 +404,36 @@ QUALITY STANDARDS — every opportunity must:
 This analysis should be worth $50,000+ if sold to a management consulting client.
 Every sentence must earn its place. No filler. No vagueness. Maximum signal."""
 
-    async with httpx.AsyncClient(timeout=240.0) as client:
-        resp = await client.post(
-            OPENROUTER_URL,
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": OPENROUTER_MODEL,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "temperature": 0.15,
-                "max_tokens": 16000,
-            },
-        )
-        resp.raise_for_status()
-        raw_synthesis = resp.json()["choices"][0]["message"]["content"]
-        if not raw_synthesis:
-            raise ValueError("LLM returned empty synthesis. Model may be rate-limited. Try again.")
-        return _reorder_by_score(raw_synthesis)
+    last_err = None
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=240.0) as client:
+                resp = await client.post(
+                    OPENROUTER_URL,
+                    headers={
+                        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": OPENROUTER_MODEL,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        "temperature": 0.15,
+                        "max_tokens": 16000,
+                    },
+                )
+                resp.raise_for_status()
+                raw_synthesis = resp.json()["choices"][0]["message"]["content"]
+                if raw_synthesis:
+                    break
+                last_err = ValueError(f"LLM returned empty synthesis (attempt {attempt+1}/3).")
+        except httpx.HTTPStatusError as exc:
+            last_err = ValueError(f"API error {exc.response.status_code} (attempt {attempt+1}/3): {exc.response.text[:200]}")
+    else:
+        raise last_err or ValueError("LLM returned empty synthesis after 3 attempts.")
+    return _reorder_by_score(raw_synthesis)
 
 
 async def follow_up(
@@ -495,25 +503,33 @@ Provide a detailed, partner-level response with specific numbers, timelines,
 and actionable recommendations. Structure with clear headers. Include
 financial estimates with stated assumptions."""
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        resp = await client.post(
-            OPENROUTER_URL,
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": OPENROUTER_MODEL,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                "temperature": 0.2,
-                "max_tokens": 8000,
-            },
-        )
-        resp.raise_for_status()
-        content = resp.json()["choices"][0]["message"]["content"]
-        if not content:
-            raise ValueError("LLM returned empty response. Model may be rate-limited. Try again.")
-        return content
+    last_err = None
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                resp = await client.post(
+                    OPENROUTER_URL,
+                    headers={
+                        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": OPENROUTER_MODEL,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        "temperature": 0.2,
+                        "max_tokens": 8000,
+                    },
+                )
+                resp.raise_for_status()
+                content = resp.json()["choices"][0]["message"]["content"]
+                if content:
+                    break
+                last_err = ValueError(f"LLM returned empty response (attempt {attempt+1}/3).")
+        except httpx.HTTPStatusError as exc:
+            last_err = ValueError(f"API error {exc.response.status_code} (attempt {attempt+1}/3): {exc.response.text[:200]}")
+    else:
+        raise last_err or ValueError("LLM returned empty response after 3 attempts.")
+    return content
