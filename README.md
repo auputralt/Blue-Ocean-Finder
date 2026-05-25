@@ -1,7 +1,7 @@
 ---
 title: AI Blue Ocean Finder
 emoji: "\U0001F30A"
-colorFrom: cyan
+colorFrom: blue
 colorTo: blue
 sdk: gradio
 sdk_version: "5.29.0"
