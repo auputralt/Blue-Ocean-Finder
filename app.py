@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import tempfile
 import io
+import base64
 from pathlib import Path
 from typing import Optional
 
@@ -18,258 +20,425 @@ from utils import format_raw_research
 
 init_db()
 
+# ── Logo as base64 for reliable inline rendering ──
+_logo_path = Path(__file__).parent / "Public" / "Logo.png"
+if _logo_path.exists():
+    _LOGO_B64 = base64.b64encode(_logo_path.read_bytes()).decode()
+else:
+    _LOGO_B64 = ""
+
 
 # ════════════════════════════════════════════════════════════
-#  THEME & CSS
+#  THEME & CSS  —  Deep Ocean Noir
 # ════════════════════════════════════════════════════════════
 
 THEME = gr.themes.Soft(
-    primary_hue="cyan",
-    secondary_hue="sky",
+    primary_hue=gr.themes.Color(
+        c50="#f0fdfa", c100="#ccfbf1", c200="#99f6e4",
+        c300="#5eead4", c400="#2dd4bf", c500="#14b8a6",
+        c600="#0d9488", c700="#0f766e", c800="#115e59", c900="#134e4a",
+        c950="#042f2e",
+    ),
+    secondary_hue=gr.themes.Color(
+        c50="#fefce8", c100="#fef9c3", c200="#fef08a",
+        c300="#fde047", c400="#facc15", c500="#eab308",
+        c600="#ca8a04", c700="#a16207", c800="#854d0e", c900="#713f12",
+        c950="#422006",
+    ),
     neutral_hue="slate",
-    font=gr.themes.GoogleFont("DM Sans"),
+    font=gr.themes.GoogleFont("Outfit"),
     font_mono=gr.themes.GoogleFont("JetBrains Mono"),
 ).set(
-    body_background_fill_dark="#060c18",
-    block_background_fill_dark="rgba(10, 18, 36, 0.85)",
-    block_border_color_dark="rgba(56, 189, 248, 0.12)",
-    block_label_text_color_dark="#94a3b8",
+    body_background_fill_dark="#030712",
+    block_background_fill_dark="rgba(8, 14, 28, 0.92)",
+    block_border_color_dark="rgba(20, 184, 166, 0.10)",
+    block_label_text_color_dark="#64748b",
     block_title_text_color_dark="#e2e8f0",
-    input_background_fill_dark="rgba(15, 23, 42, 0.9)",
-    input_border_color_dark="rgba(56, 189, 248, 0.2)",
-    button_primary_background_fill_dark="linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%)",
-    button_primary_background_fill_hover_dark="linear-gradient(135deg, #38bdf8 0%, #22d3ee 100%)",
-    button_primary_text_color_dark="#ffffff",
-    button_secondary_background_fill_dark="rgba(14, 165, 233, 0.12)",
-    button_secondary_background_fill_hover_dark="rgba(14, 165, 233, 0.22)",
-    button_secondary_text_color_dark="#7dd3fc",
-    checkbox_background_color_dark="rgba(14, 165, 233, 0.15)",
-    slider_color_dark="#0ea5e9",
+    input_background_fill_dark="rgba(12, 20, 38, 0.95)",
+    input_border_color_dark="rgba(20, 184, 166, 0.18)",
+    button_primary_background_fill_dark="linear-gradient(135deg, #0d9488 0%, #0f766e 100%)",
+    button_primary_background_fill_hover_dark="linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)",
+    button_primary_text_color_dark="#f0fdfa",
+    button_secondary_background_fill_dark="rgba(20, 184, 166, 0.08)",
+    button_secondary_background_fill_hover_dark="rgba(20, 184, 166, 0.16)",
+    button_secondary_text_color_dark="#5eead4",
+    checkbox_background_color_dark="rgba(20, 184, 166, 0.12)",
+    slider_color_dark="#14b8a6",
 )
 
 CUSTOM_CSS = """
-/* ── Global mobile reset ──────────────────────────────── */
+/* ── Fonts ──────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap');
+
+/* ── Global reset ───────────────────────────────────────── */
 *, *::before, *::after { box-sizing:border-box; }
 html { -webkit-text-size-adjust:100%; }
-body { overflow-x:hidden; }
-
-/* ── Hero ──────────────────────────────────────────────── */
-.hero  { text-align:center; padding:1.8rem 0 0.4rem; }
-.hero h1 {
-    font-size:2.6rem; font-weight:800; letter-spacing:-0.03em;
-    background:linear-gradient(135deg,#38bdf8 0%,#0ea5e9 35%,#06b6d4 70%,#14b8a6 100%);
-    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-    background-clip:text; margin:0;
-}
-.hero p { color:#64748b; font-size:1.05rem; margin-top:0.25rem; }
-
-/* ── Animated accent bar ─────────────────────────────── */
-.wave-bar {
-    height:3px; border-radius:2px; margin:0 auto 1.2rem;
-    max-width:280px;
-    background:linear-gradient(90deg,#0ea5e9,#06b6d4,#14b8a6,#0ea5e9);
-    background-size:200% 100%;
-    animation:waveSlide 3s linear infinite;
-}
-@keyframes waveSlide {
-    0%  { background-position:0% 50%; }
-    100%{ background-position:200% 50%; }
+body {
+    overflow-x:hidden;
+    background:#030712;
+    font-family:'Outfit', sans-serif;
 }
 
-/* ── Status box ──────────────────────────────────────── */
+/* ── Subtle background grid ─────────────────────────────── */
+.gradio-container {
+    position:relative;
+}
+.gradio-container::before {
+    content:'';
+    position:fixed;
+    inset:0;
+    background-image:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(20,184,166,0.06) 0%, transparent 60%),
+        linear-gradient(rgba(20,184,166,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(20,184,166,0.02) 1px, transparent 1px);
+    background-size:100% 100%, 60px 60px, 60px 60px;
+    pointer-events:none;
+    z-index:0;
+}
+.gradio-container > * { position:relative; z-index:1; }
+
+/* ── Hero ───────────────────────────────────────────────── */
+.hero-wrap {
+    text-align:center;
+    padding:2.4rem 1rem 0.6rem;
+    position:relative;
+}
+.hero-logo {
+    width:120px; height:120px;
+    border-radius:24px;
+    object-fit:contain;
+    margin:0 auto 1rem;
+    display:block;
+    filter:drop-shadow(0 8px 24px rgba(20,184,166,0.25));
+    animation:logoFloat 6s ease-in-out infinite;
+}
+@keyframes logoFloat {
+    0%,100% { transform:translateY(0); }
+    50% { transform:translateY(-6px); }
+}
+.hero-wrap h1 {
+    font-family:'Outfit', sans-serif;
+    font-size:2.8rem; font-weight:800;
+    letter-spacing:-0.04em;
+    background:linear-gradient(135deg, #5eead4 0%, #2dd4bf 30%, #14b8a6 60%, #eab308 100%);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    background-clip:text;
+    margin:0;
+    line-height:1.1;
+}
+.hero-wrap p {
+    font-family:'Source Serif 4', serif;
+    color:#64748b;
+    font-size:1.1rem;
+    margin-top:0.5rem;
+    font-style:italic;
+    letter-spacing:0.01em;
+}
+
+/* ── Accent line ────────────────────────────────────────── */
+.accent-line {
+    width:60px; height:2px;
+    margin:0.8rem auto 1.5rem;
+    background:linear-gradient(90deg, #14b8a6, #eab308);
+    border-radius:2px;
+    position:relative;
+}
+.accent-line::after {
+    content:'';
+    position:absolute;
+    inset:-4px -20px;
+    background:linear-gradient(90deg, transparent, rgba(20,184,166,0.15), rgba(234,179,8,0.15), transparent);
+    border-radius:4px;
+    filter:blur(4px);
+}
+
+/* ── Status box ─────────────────────────────────────────── */
 .status-box {
-    padding:0.85rem 1.25rem; border-radius:10px;
-    background:rgba(14,165,233,0.08);
-    border:1px solid rgba(14,165,233,0.18);
-    font-weight:500; color:#7dd3fc; font-size:0.95rem;
+    padding:0.9rem 1.3rem;
+    border-radius:10px;
+    background:rgba(20,184,166,0.06);
+    border:1px solid rgba(20,184,166,0.14);
+    font-weight:500;
+    color:#5eead4;
+    font-size:0.95rem;
     word-break:break-word;
+    font-family:'Outfit', sans-serif;
 }
 .status-box.working {
-    animation:pulse 2s ease-in-out infinite;
+    animation:statusPulse 2.5s ease-in-out infinite;
+    border-color:rgba(20,184,166,0.3);
 }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+@keyframes statusPulse {
+    0%,100% { opacity:1; border-color:rgba(20,184,166,0.14); }
+    50% { opacity:0.7; border-color:rgba(20,184,166,0.3); }
+}
 
-/* ── Results card ────────────────────────────────────── */
+/* ── Results card ────────────────────────────────────────── */
 .results-card {
-    background:rgba(8,15,30,0.7);
-    backdrop-filter:blur(12px);
-    border:1px solid rgba(56,189,248,0.1);
-    border-radius:14px; padding:1.8rem;
+    background:rgba(6,12,24,0.85);
+    backdrop-filter:blur(16px);
+    border:1px solid rgba(20,184,166,0.08);
+    border-radius:16px;
+    padding:2rem;
     overflow-wrap:break-word;
     word-break:break-word;
+    position:relative;
+}
+.results-card::before {
+    content:'';
+    position:absolute;
+    top:0; left:20px; right:20px;
+    height:1px;
+    background:linear-gradient(90deg, transparent, rgba(20,184,166,0.3), transparent);
 }
 
-/* ── Primary CTA glow ───────────────────────────────── */
+/* ── Primary CTA ────────────────────────────────────────── */
 .glow-btn {
-    box-shadow:0 4px 18px rgba(14,165,233,0.35) !important;
-    transition:all 0.25s ease !important;
-    min-height:48px !important;
+    box-shadow:0 4px 20px rgba(20,184,166,0.25) !important;
+    transition:all 0.3s cubic-bezier(0.4,0,0.2,1) !important;
+    min-height:50px !important;
+    font-family:'Outfit', sans-serif !important;
+    font-weight:600 !important;
+    letter-spacing:0.02em !important;
+    text-transform:none !important;
 }
 .glow-btn:hover {
     transform:translateY(-2px) !important;
-    box-shadow:0 8px 28px rgba(14,165,233,0.5) !important;
+    box-shadow:0 8px 32px rgba(20,184,166,0.4) !important;
 }
 @media (hover:none) {
     .glow-btn:hover { transform:none !important; }
 }
 
-/* ── Markdown inside results ─────────────────────────── */
+/* ── Markdown inside results ────────────────────────────── */
 .results-card h1, .results-card h2, .results-card h3 {
-    color:#38bdf8 !important;
+    color:#2dd4bf !important;
+    font-family:'Outfit', sans-serif !important;
 }
-.results-card a { color:#22d3ee !important; }
-.results-card strong { color:#e2e8f0 !important; }
-.results-card p { color:#cbd5e1 !important; line-height:1.7 !important; }
-.results-card ul, .results-card ol { color:#cbd5e1 !important; }
-.results-card hr { border-color:rgba(56,189,248,0.15) !important; }
+.results-card h2 {
+    border-bottom:1px solid rgba(20,184,166,0.12) !important;
+    padding-bottom:0.4rem !important;
+}
+.results-card a { color:#eab308 !important; text-decoration:underline !important; }
+.results-card strong { color:#f1f5f9 !important; }
+.results-card p {
+    color:#94a3b8 !important;
+    line-height:1.75 !important;
+    font-family:'Source Serif 4', serif !important;
+}
+.results-card ul, .results-card ol { color:#94a3b8 !important; }
+.results-card hr { border-color:rgba(20,184,166,0.1) !important; }
+.results-card table {
+    border-collapse:collapse !important;
+    width:100% !important;
+}
+.results-card th {
+    background:rgba(20,184,166,0.08) !important;
+    color:#5eead4 !important;
+    font-family:'Outfit', sans-serif !important;
+    font-weight:600 !important;
+    padding:0.5rem 0.75rem !important;
+    border:1px solid rgba(20,184,166,0.12) !important;
+}
+.results-card td {
+    padding:0.5rem 0.75rem !important;
+    border:1px solid rgba(20,184,166,0.08) !important;
+    color:#cbd5e1 !important;
+}
 
-/* ── Section separator ───────────────────────────────── */
+/* ── Section separator ──────────────────────────────────── */
 .section-sep {
     border:0; height:1px;
-    background:linear-gradient(90deg,transparent,rgba(56,189,248,0.2),transparent);
-    margin:1.2rem 0;
+    background:linear-gradient(90deg, transparent, rgba(20,184,166,0.15), rgba(234,179,8,0.1), transparent);
+    margin:1.5rem 0;
 }
 
-/* ── Editable brief textarea ──────────────────────────── */
+/* ── Editable brief textarea ────────────────────────────── */
 .brief-area textarea {
-    background:rgba(15,23,42,0.95) !important;
-    border:1px solid rgba(56,189,248,0.25) !important;
-    border-radius:10px !important;
+    background:rgba(8,14,28,0.95) !important;
+    border:1px solid rgba(20,184,166,0.18) !important;
+    border-radius:12px !important;
     color:#e2e8f0 !important;
     font-size:16px !important;
-    line-height:1.6 !important;
-    padding:1rem !important;
+    line-height:1.65 !important;
+    padding:1.1rem !important;
+    font-family:'Source Serif 4', serif !important;
+    transition:border-color 0.25s ease, box-shadow 0.25s ease !important;
 }
 .brief-area textarea:focus {
-    border-color:rgba(56,189,248,0.5) !important;
-    box-shadow:0 0 0 2px rgba(14,165,233,0.15) !important;
+    border-color:rgba(20,184,166,0.4) !important;
+    box-shadow:0 0 0 3px rgba(20,184,166,0.08) !important;
 }
 
-/* ── Q&A Chat ─────────────────────────────────────────── */
-.chat-area {
-    background:rgba(8,15,30,0.6) !important;
+/* ── Input row styling ──────────────────────────────────── */
+.input-row input[type="text"] {
+    background:rgba(8,14,28,0.95) !important;
+    border:1px solid rgba(20,184,166,0.15) !important;
     border-radius:12px !important;
-    border:1px solid rgba(56,189,248,0.1) !important;
+    color:#e2e8f0 !important;
+    font-family:'Outfit', sans-serif !important;
+    transition:border-color 0.25s ease !important;
+}
+.input-row input[type="text"]:focus {
+    border-color:rgba(20,184,166,0.4) !important;
+}
+
+/* ── Q&A Chat ───────────────────────────────────────────── */
+.chat-area {
+    background:rgba(6,12,24,0.7) !important;
+    border-radius:14px !important;
+    border:1px solid rgba(20,184,166,0.08) !important;
 }
 .chat-input textarea {
-    background:rgba(15,23,42,0.9) !important;
-    border:1px solid rgba(56,189,248,0.2) !important;
-    border-radius:10px !important;
+    background:rgba(8,14,28,0.9) !important;
+    border:1px solid rgba(20,184,166,0.15) !important;
+    border-radius:12px !important;
     color:#e2e8f0 !important;
     font-size:16px !important;
+    font-family:'Outfit', sans-serif !important;
+}
+.typing-indicator {
+    display:flex; align-items:center; gap:6px;
+    padding:8px 14px; color:#5eead4; font-size:0.9rem;
+    font-family:'Outfit', sans-serif;
+}
+.typing-indicator .dot {
+    width:6px; height:6px; border-radius:50%; background:#14b8a6;
+    animation:typingBounce 1.4s infinite ease-in-out;
+}
+.typing-indicator .dot:nth-child(2) { animation-delay:0.2s; }
+.typing-indicator .dot:nth-child(3) { animation-delay:0.4s; }
+@keyframes typingBounce {
+    0%,80%,100% { opacity:0.2; transform:scale(0.7); }
+    40% { opacity:1; transform:scale(1.15); }
 }
 
-/* ── Export buttons ───────────────────────────────────── */
+/* ── Export buttons ──────────────────────────────────────── */
 .export-btn {
-    min-width:140px !important;
-    min-height:44px !important;
+    min-width:160px !important;
+    min-height:46px !important;
+    border-radius:12px !important;
+    font-family:'Outfit', sans-serif !important;
 }
 
-/* ── Footer ──────────────────────────────────────────── */
-.footer-text { text-align:center; color:#334155; font-size:0.8rem; padding:1rem 0 2rem; }
+/* ── Footer ─────────────────────────────────────────────── */
+.footer-text {
+    text-align:center;
+    color:#1e293b;
+    font-size:0.78rem;
+    padding:1.2rem 0 2.5rem;
+    font-family:'Outfit', sans-serif;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+}
 
-/* ── Input fields — prevent zoom on iOS ──────────────── */
+/* ── Input fields — prevent zoom on iOS ──────────────────── */
 input[type="text"], textarea, select {
     font-size:16px !important;
+}
+
+/* ── Gradio label styling ───────────────────────────────── */
+label span, .svelte-1gfkn6j {
+    font-family:'Outfit', sans-serif !important;
+    font-weight:500 !important;
+    letter-spacing:0.01em !important;
+}
+
+/* ── Accordion styling ──────────────────────────────────── */
+details summary {
+    font-family:'Outfit', sans-serif !important;
+    font-weight:600 !important;
+}
+
+/* ── Dataframe styling ──────────────────────────────────── */
+.table-wrap table {
+    font-family:'Outfit', sans-serif !important;
+}
+.table-wrap th {
+    background:rgba(20,184,166,0.06) !important;
+    color:#5eead4 !important;
 }
 
 /* ══════════════════════════════════════════════════════════
    TABLET — max 768px
    ══════════════════════════════════════════════════════════ */
 @media (max-width:768px) {
-    .hero { padding:1.2rem 0.5rem 0.3rem; }
-    .hero h1 { font-size:1.9rem; }
-    .hero p { font-size:0.92rem; }
-    .wave-bar { max-width:200px; }
+    .hero-wrap { padding:1.5rem 0.75rem 0.4rem; }
+    .hero-logo { width:90px; height:90px; border-radius:18px; }
+    .hero-wrap h1 { font-size:2rem; }
+    .hero-wrap p { font-size:0.95rem; }
+    .accent-line { margin:0.6rem auto 1.2rem; }
 
     .results-card {
-        padding:1.2rem 0.9rem;
-        border-radius:10px;
+        padding:1.3rem 1rem;
+        border-radius:12px;
     }
-
     .status-box {
-        padding:0.7rem 0.9rem;
+        padding:0.7rem 1rem;
         font-size:0.88rem;
     }
-
-    .brief-area textarea { padding:0.8rem !important; }
-
-    .chat-area { border-radius:8px !important; }
-
-    .section-sep { margin:0.8rem 0; }
+    .brief-area textarea { padding:0.9rem !important; }
+    .chat-area { border-radius:10px !important; }
+    .section-sep { margin:1rem 0; }
 }
 
 /* ══════════════════════════════════════════════════════════
    MOBILE — max 480px
    ══════════════════════════════════════════════════════════ */
 @media (max-width:480px) {
-    .hero { padding:0.8rem 0.25rem 0.2rem; }
-    .hero h1 { font-size:1.45rem; letter-spacing:-0.02em; }
-    .hero p { font-size:0.82rem; }
-    .wave-bar { max-width:150px; height:2px; margin-bottom:0.8rem; }
+    .hero-wrap { padding:1rem 0.5rem 0.2rem; }
+    .hero-logo { width:72px; height:72px; border-radius:14px; margin-bottom:0.7rem; }
+    .hero-wrap h1 { font-size:1.55rem; letter-spacing:-0.03em; }
+    .hero-wrap p { font-size:0.82rem; }
+    .accent-line { width:40px; margin:0.5rem auto 1rem; }
 
     .results-card {
-        padding:0.9rem 0.7rem;
-        border-radius:8px;
+        padding:1rem 0.75rem;
+        border-radius:10px;
     }
-
     .status-box {
-        padding:0.6rem 0.75rem;
+        padding:0.6rem 0.8rem;
         font-size:0.82rem;
         border-radius:8px;
     }
-
     .brief-area textarea {
-        padding:0.6rem !important;
+        padding:0.7rem !important;
         line-height:1.5 !important;
     }
-
-    .section-sep { margin:0.6rem 0; }
+    .section-sep { margin:0.7rem 0; }
 
     /* Force Gradio rows to stack on mobile */
     [data-testid="row"] {
         flex-direction:column !important;
         gap:0.5rem !important;
     }
-
-    /* Chat input row stays horizontal — ask button beside input */
     .chat-input-row {
         flex-direction:row !important;
     }
     .chat-input-row input, .chat-input-row textarea {
         flex:1 !important;
     }
-
-    /* Export buttons full-width stacked */
     .export-btn {
         min-width:100% !important;
-        margin-bottom:0.4rem;
+        margin-bottom:0.5rem;
     }
-
-    /* Touch-friendly tap targets */
     button { min-height:44px !important; }
-
-    /* Dataframe horizontal scroll */
     .table-wrap {
         overflow-x:auto !important;
         -webkit-overflow-scrolling:touch;
     }
-
-    /* Prevent horizontal overflow */
     .gradio-container { overflow-x:hidden !important; max-width:100vw !important; }
     .contain {
         padding-left:0.4rem !important;
         padding-right:0.4rem !important;
         max-width:100% !important;
     }
-
-    /* Chatbot compact height */
     .chat-area { min-height:200px !important; }
-
-    .footer-text { font-size:0.7rem; padding:0.8rem 0 1.5rem; }
+    .footer-text { font-size:0.65rem; padding:0.8rem 0 1.5rem; }
 }
 
-/* ── Safe area inset (notch phones iPhone X+) ─────────── */
+/* ── Safe area inset (notch phones iPhone X+) ──────────── */
 @supports (padding:max(0px)) {
     .gradio-container {
         padding-left:max(0.5rem, env(safe-area-inset-left)) !important;
@@ -304,6 +473,9 @@ def create_app() -> gr.Blocks:
 
     with gr.Blocks(
         title="AI Blue Ocean Finder",
+        theme=THEME,
+        css=CUSTOM_CSS,
+        head=VIEWPORT_META,
     ) as app:
 
         # ── State (session-scoped, no globals) ───────────
@@ -316,12 +488,14 @@ def create_app() -> gr.Blocks:
         s_selected_row = gr.State(None) # selected history row data
 
         # ── Hero ─────────────────────────────────────────
+        _logo_img = f'<img src="data:image/png;base64,{_LOGO_B64}" alt="Blue Ocean Finder" class="hero-logo">' if _LOGO_B64 else ""
         gr.HTML(
-            '<div class="hero">'
-            "<h1>🌊 AI Blue Ocean Finder</h1>"
-            "<p>Discover uncontested market spaces — powered by real-time AI research</p>"
+            '<div class="hero-wrap">'
+            f'{_logo_img}'
+            "<h1>Blue Ocean Finder</h1>"
+            '<p>Discover uncontested market spaces &mdash; powered by real-time AI research</p>'
             "</div>"
-            '<div class="wave-bar"></div>'
+            '<div class="accent-line"></div>'
         )
 
         if not config_ok:
@@ -392,6 +566,7 @@ def create_app() -> gr.Blocks:
             )
             chatbot = gr.Chatbot(
                 label="",
+                type="messages",
                 elem_classes="chat-area",
                 height=350,
             )
@@ -418,11 +593,12 @@ def create_app() -> gr.Blocks:
         with gr.Column(visible=False) as col_download:
             gr.HTML('<hr class="section-sep">')
             gr.Markdown("### 📥  Export Report")
+            gr.Markdown("*Click a format button below to generate and download your report.*")
             with gr.Row(elem_classes="export-row"):
-                btn_pdf  = gr.Button("📄  PDF", elem_classes="export-btn")
-                btn_docx = gr.Button("📝  Word (.docx)", elem_classes="export-btn")
-                btn_md   = gr.Button("📋  Markdown", elem_classes="export-btn")
-            file_out = gr.File(label="Download", visible=False, interactive=False)
+                btn_pdf  = gr.Button("📄  Download PDF", variant="primary", elem_classes="export-btn glow-btn")
+                btn_docx = gr.Button("📝  Download Word", elem_classes="export-btn")
+                btn_md   = gr.Button("📋  Download Markdown", elem_classes="export-btn")
+            file_out = gr.File(label="⬇️  Your download will appear here", visible=True, interactive=False)
 
         # ── History Tab ──────────────────────────────────
         with gr.Accordion("📚  Report History", open=False):
@@ -635,6 +811,15 @@ def create_app() -> gr.Blocks:
         )
 
         # ── FOLLOW-UP Q&A ───────────────────────────────
+        TYPING_MSG = (
+            '<div class="typing-indicator">'
+            '<span>Agent is thinking</span>'
+            '<span class="dot"></span>'
+            '<span class="dot"></span>'
+            '<span class="dot"></span>'
+            '</div>'
+        )
+
         async def ask_followup(
             question: str,
             chat_history: list,
@@ -651,6 +836,10 @@ def create_app() -> gr.Blocks:
             chat_history.append(
                 {"role": "user", "content": question.strip()}
             )
+            # Show user message + typing indicator
+            chat_history.append(
+                {"role": "assistant", "content": TYPING_MSG}
+            )
             yield {chatbot: chat_history, inp_question: ""}
 
             enhanced_query = enhanced.get("enhanced_query", "") if enhanced else ""
@@ -664,11 +853,10 @@ def create_app() -> gr.Blocks:
                     research or [],
                 )
             except Exception as exc:
-                answer = f"Error: {exc}"
+                answer = f"Error generating response: {exc}"
 
-            chat_history.append(
-                {"role": "assistant", "content": answer}
-            )
+            # Replace typing indicator with real answer
+            chat_history[-1] = {"role": "assistant", "content": answer}
             yield {chatbot: chat_history}
 
         btn_ask.click(
@@ -708,23 +896,26 @@ def create_app() -> gr.Blocks:
 
         def dl_pdf(industry, location, synthesis, research):
             if not synthesis:
-                return gr.update(visible=False)
+                return gr.update(value=None, visible=True)
             buf = generate_pdf(industry, location, synthesis, research)
-            path = _save_temp(buf, ".pdf", "blue_ocean_report")
+            safe_name = re.sub(r'[^\w\s-]', '', industry)[:30].strip().replace(' ', '_') or "report"
+            path = _save_temp(buf, ".pdf", f"blue_ocean_{safe_name}")
             return gr.update(value=path, visible=True)
 
         def dl_docx(industry, location, synthesis, research):
             if not synthesis:
-                return gr.update(visible=False)
+                return gr.update(value=None, visible=True)
             buf = generate_docx(industry, location, synthesis, research)
-            path = _save_temp(buf, ".docx", "blue_ocean_report")
+            safe_name = re.sub(r'[^\w\s-]', '', industry)[:30].strip().replace(' ', '_') or "report"
+            path = _save_temp(buf, ".docx", f"blue_ocean_{safe_name}")
             return gr.update(value=path, visible=True)
 
         def dl_md(industry, location, synthesis, research):
             if not synthesis:
-                return gr.update(visible=False)
+                return gr.update(value=None, visible=True)
             text = generate_markdown(industry, location, synthesis, research)
-            p = Path(tempfile.gettempdir()) / "blue_ocean_report.md"
+            safe_name = re.sub(r'[^\w\s-]', '', industry)[:30].strip().replace(' ', '_') or "report"
+            p = Path(tempfile.gettempdir()) / f"blue_ocean_{safe_name}.md"
             p.write_text(text, encoding="utf-8")
             return gr.update(value=str(p), visible=True)
 
@@ -873,7 +1064,4 @@ if __name__ == "__main__":
     app.launch(
         server_name="0.0.0.0",
         server_port=7860,
-        theme=THEME,
-        css=CUSTOM_CSS,
-        head=VIEWPORT_META,
     )
