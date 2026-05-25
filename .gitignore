@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment
+.env
+.venv/
+venv/
+env/
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Playwright MCP
+.playwright-mcp/
+
+# Temp exports
+*.tmp
