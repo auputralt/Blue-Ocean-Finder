@@ -1,3 +1,14 @@
+---
+title: AI Blue Ocean Finder
+emoji: "\U0001F30A"
+colorFrom: cyan
+colorTo: blue
+sdk: gradio
+sdk_version: "5.29.0"
+app_file: app.py
+pinned: false
+---
+
 # 🌊 AI Blue Ocean Finder
 
 Discover uncontested market spaces with AI-powered strategic analysis. This tool produces McKinsey/BCG-grade Blue Ocean Strategy reports — market sizing, unit economics, competitive blind spots, go-to-market roadmaps — all grounded in real-time web research.
