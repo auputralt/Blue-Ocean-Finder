@@ -603,8 +603,21 @@ def generate_docx(
 #  PDF  (fpdf2) — professional report styling
 # ════════════════════════════════════════════════════════════
 
+# Emoji-to-text mapping for PDF-safe rendering
+_EMOJI_MAP = {
+    "🔍": "[INSIGHT]", "📊": "[DATA]", "🎯": "[TARGET]", "🔄": "[STRATEGY]",
+    "💰": "[FINANCE]", "🚀": "[LAUNCH]", "⚠️": "[RISK]", "📎": "[SOURCES]",
+    "✅": "[SCORE]", "💡": "[WHY]", "🟢": "[START]", "🌟": "[STAR]",
+    "📋": "[BRIEF]", "💬": "[CHAT]", "📥": "[EXPORT]", "📚": "[HISTORY]",
+    "🌊": "[OCEAN]", "📄": "", "📝": "", "❌": "[X]", "⚠": "[!]",
+    "⭐": "[*]", "🔄": "", "🗑️": "", "📂": "", "🚫": "[BLOCKED]",
+    "🧠": "[AI]", "🔄": "", "✅": "[OK]",
+}
+
 def _safe_latin(text: str) -> str:
     """Replace non-latin-1 chars so fpdf2 doesn't crash."""
+    for emoji, replacement in _EMOJI_MAP.items():
+        text = text.replace(emoji, replacement)
     return text.encode("latin-1", "replace").decode("latin-1")
 
 
@@ -616,7 +629,12 @@ def _clean_md_for_pdf(text: str) -> str:
     text = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", text)
     text = re.sub(r"^---$", "_" * 60, text, flags=re.MULTILINE)
     text = re.sub(r"^>\s+", "", text, flags=re.MULTILINE)
-    return text
+    # Clean up leftover markdown table pipes for readability
+    text = re.sub(r"^\|[-\s|]+\|$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\|(.+?)\|$", lambda m: " | ".join(c.strip() for c in m.group(1).split("|")), text, flags=re.MULTILINE)
+    # Collapse excessive blank lines
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 
 class _ReportPDF(FPDF):
@@ -860,6 +878,43 @@ def generate_pdf(
         pdf._subsection_title(f"  {title_match.group(1).strip()}")
         section = section[title_match.end():]
 
+        # Extract viability percentage for display
+        viability_match = re.search(r"\*\*Overall Viability:\s*(\d+)%\*\*", section)
+        if viability_match:
+            pct = viability_match.group(1)
+            pdf._highlight_box("VIABILITY SCORE", f"{pct}% — See detailed breakdown below")
+
+        # Extract "Why You Should Proceed" section
+        why_match = re.search(
+            r"###\s*💡\s*Why You Should Proceed\s*\n(.*?)(?=\n###\s|---|\Z)",
+            section, re.DOTALL
+        )
+        if why_match:
+            pdf._highlight_box("WHY PROCEED", _clean_md_for_pdf(why_match.group(1).strip()))
+
+        # Extract "Easiest Way to Start" section with all 3 options
+        start_match = re.search(
+            r"###\s*🟢\s*Easiest Way to Start.*?\n(.*?)(?=\n###\s*📎|\n---\s*$|\Z)",
+            section, re.DOTALL
+        )
+        if start_match:
+            start_text = start_match.group(1).strip()
+            pdf._subsection_title("  Easiest Way to Start", size=11)
+            # Extract each option
+            for opt_label in ["Option A", "Option B", "Option C"]:
+                opt_match = re.search(
+                    rf"\*\*{opt_label}:\s*(.+?)\*\*\s*\n(.*?)(?=\*\*Option [A-C]|\*\*Recommendation|\Z)",
+                    start_text, re.DOTALL
+                )
+                if opt_match:
+                    opt_name = opt_match.group(1).strip()
+                    opt_detail = opt_match.group(2).strip()
+                    pdf._bold_label(f"  {opt_label}: {opt_name}", _clean_md_for_pdf(opt_detail)[:300])
+            # Extract final recommendation
+            rec_match = re.search(r"\*\*Recommendation:\*\*\s*(.+?)(?:\n|$)", start_text)
+            if rec_match:
+                pdf._highlight_box("RECOMMENDED PATH", _clean_md_for_pdf(rec_match.group(1).strip()))
+
         # Parse labeled fields
         field_pattern = re.compile(
             r"\*\*(.+?):\*\*\s*\n(.*?)(?=\n\*\*|\n---|\n###|\Z)",
@@ -876,6 +931,12 @@ def generate_pdf(
                 pdf._highlight_box(f"[HIDDEN INSIGHT] {label}", value)
             elif label.lower().startswith("market gap"):
                 pdf._highlight_box(f"[MARKET GAP] {label}", value)
+            elif "viability score" in label.lower() or "overall viability" in label.lower():
+                pdf._highlight_box(f"[VIABILITY SCORE] {label}", value)
+            elif "why you should proceed" in label.lower():
+                pdf._highlight_box(f"[WHY PROCEED] {label}", value)
+            elif "easiest way to start" in label.lower() or label.lower().startswith("recommendation"):
+                pdf._highlight_box(f"[HOW TO START] {label}", value)
             elif label.lower().startswith("why this is invisible"):
                 pdf._bold_label(f"  {label}:", value)
             elif label.lower().startswith("target audience"):

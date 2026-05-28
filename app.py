@@ -592,10 +592,9 @@ def create_app() -> gr.Blocks:
             gr.Markdown("### 📥  Export Report")
             gr.Markdown("*Click a format button below to generate and download your report.*")
             with gr.Row(elem_classes="export-row"):
-                btn_pdf  = gr.Button("📄  Download PDF", variant="primary", elem_classes="export-btn glow-btn")
-                btn_docx = gr.Button("📝  Download Word", elem_classes="export-btn")
-                btn_md   = gr.Button("📋  Download Markdown", elem_classes="export-btn")
-            file_out = gr.File(label="⬇️  Your download will appear here", visible=True, interactive=False)
+                btn_pdf  = gr.DownloadButton("📄  Download PDF", variant="primary", elem_classes="export-btn glow-btn")
+                btn_docx = gr.DownloadButton("📝  Download Word", elem_classes="export-btn")
+                btn_md   = gr.DownloadButton("📋  Download Markdown", elem_classes="export-btn")
 
         # ── History Tab ──────────────────────────────────
         with gr.Accordion("📚  Report History", open=False):
@@ -893,43 +892,43 @@ def create_app() -> gr.Blocks:
 
         def dl_pdf(industry, location, synthesis, research):
             if not synthesis:
-                return gr.update(value=None, visible=True)
+                return None
             buf = generate_pdf(industry, location, synthesis, research)
             safe_name = re.sub(r'[^\w\s-]', '', industry)[:30].strip().replace(' ', '_') or "report"
             path = _save_temp(buf, ".pdf", f"blue_ocean_{safe_name}")
-            return gr.update(value=path, visible=True)
+            return path
 
         def dl_docx(industry, location, synthesis, research):
             if not synthesis:
-                return gr.update(value=None, visible=True)
+                return None
             buf = generate_docx(industry, location, synthesis, research)
             safe_name = re.sub(r'[^\w\s-]', '', industry)[:30].strip().replace(' ', '_') or "report"
             path = _save_temp(buf, ".docx", f"blue_ocean_{safe_name}")
-            return gr.update(value=path, visible=True)
+            return path
 
         def dl_md(industry, location, synthesis, research):
             if not synthesis:
-                return gr.update(value=None, visible=True)
+                return None
             text = generate_markdown(industry, location, synthesis, research)
             safe_name = re.sub(r'[^\w\s-]', '', industry)[:30].strip().replace(' ', '_') or "report"
             p = Path(tempfile.gettempdir()) / f"blue_ocean_{safe_name}.md"
             p.write_text(text, encoding="utf-8")
-            return gr.update(value=str(p), visible=True)
+            return str(p)
 
         btn_pdf.click(
             fn=dl_pdf,
             inputs=[s_industry, s_location, s_synthesis, s_research],
-            outputs=[file_out],
+            outputs=[btn_pdf],
         )
         btn_docx.click(
             fn=dl_docx,
             inputs=[s_industry, s_location, s_synthesis, s_research],
-            outputs=[file_out],
+            outputs=[btn_docx],
         )
         btn_md.click(
             fn=dl_md,
             inputs=[s_industry, s_location, s_synthesis, s_research],
-            outputs=[file_out],
+            outputs=[btn_md],
         )
 
         # ── HISTORY HANDLERS ─────────────────────────────

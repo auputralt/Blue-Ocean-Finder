@@ -36,13 +36,13 @@ def _reorder_by_score(synthesis: str) -> str:
     """
     # Extract scores from the prioritization matrix
     score_pattern = re.compile(
-        r"\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*\*?\*(\d+)",
+        r"\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*\d+%\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*\*?\*(\d+)",
     )
     scores = {}
     for m in score_pattern.finditer(synthesis):
         rank_in_table = int(m.group(1))
         opp_name = m.group(2).strip()
-        total = int(m.group(8))
+        total = int(m.group(9))
         scores[rank_in_table] = {"name": opp_name, "total": total}
 
     if not scores:
@@ -305,6 +305,71 @@ ERRC combination and why it creates an uncontested market space.
 Include at least one "killer risk" — the thing most likely to kill this
 opportunity — and the specific early-warning indicator to watch for.
 
+### ✅ Viability Score
+
+**Overall Viability: XX%** — calculated from the five scoring dimensions below.
+This percentage reflects the weighted probability of building a profitable, defensible business
+in this space within 3 years, given realistic execution.
+
+Show your math explicitly:
+- Feasibility × weight (25%) = X%
+- Market Size × weight (25%) = X%
+- Speed to Revenue × weight (20%) = X%
+- Competitive Moat × weight (15%) = X%
+- Strategic Fit × weight (15%) = X%
+- **= XX% total viability**
+
+State the biggest risk factor that could drop this score by 10+ points.
+
+### 💡 Why You Should Proceed
+
+Write 4-6 hard-hitting sentences explaining why this specific opportunity is worth pursuing NOW.
+Reference specific data points from the research. Address:
+1. What macro trend or market shift makes the timing critical
+2. What specific competitor weakness or market gap you can exploit
+3. What realistic revenue ceiling looks like at years 1, 3, and 5
+4. What personal/strategic advantage the entrepreneur has by acting first
+
+This should read like a venture capitalist's investment memo recommendation paragraph.
+End with one bold, quotable sentence that captures the core thesis.
+
+### 🟢 Easiest Way to Start — Choose One
+
+Provide exactly 3 distinct entry paths, ranked from lowest effort to highest potential.
+Each path must have a clear name, estimated cost, timeline to first revenue, and specific steps.
+
+**Option A: [Name] — Minimum Viable Entry**
+- Estimated startup cost: $X — $Y
+- Time to first revenue: X weeks
+- What you need: [list 2-3 concrete things]
+- Step 1: [specific action]
+- Step 2: [specific action]
+- Step 3: [specific action]
+- Expected first-month revenue: $X
+- Why choose this: [1 sentence]
+
+**Option B: [Name] — Lean Launch**
+- Estimated startup cost: $X — $Y
+- Time to first revenue: X weeks
+- What you need: [list 2-3 concrete things]
+- Step 1: [specific action]
+- Step 2: [specific action]
+- Step 3: [specific action]
+- Expected first-month revenue: $X
+- Why choose this: [1 sentence]
+
+**Option C: [Name] — Full Market Entry**
+- Estimated startup cost: $X — $Y
+- Time to first revenue: X weeks
+- What you need: [list 2-3 concrete things]
+- Step 1: [specific action]
+- Step 2: [specific action]
+- Step 3: [specific action]
+- Expected first-month revenue: $X
+- Why choose this: [1 sentence]
+
+**Recommendation:** Start with Option [A/B/C] because [1-2 sentences with data-backed reasoning].
+
 ### 📎 Evidence & Sources
 List 5+ specific, verifiable evidence points with source URLs:
 - [specific claim with data point] — source: [URL]
@@ -323,15 +388,16 @@ After all 5 opportunities, provide:
 
 Rank ALL 5 opportunities using this scoring framework:
 
-| Rank | Opportunity | Feasibility (1-10) | Market Size (1-10) | Speed to Revenue (1-10) | Competitive Moat (1-10) | Strategic Fit (1-10) | **TOTAL (50)** |
-|------|------------|--------------------|--------------------|------------------------|------------------------|---------------------|----------------|
-| 1 | [name] | X | X | X | X | X | **XX** |
-| 2 | [name] | X | X | X | X | X | **XX** |
-| 3 | [name] | X | X | X | X | X | **XX** |
-| 4 | [name] | X | X | X | X | X | **XX** |
-| 5 | [name] | X | X | X | X | X | **XX** |
+| Rank | Opportunity | Viability % | Feasibility (1-10) | Market Size (1-10) | Speed to Revenue (1-10) | Competitive Moat (1-10) | Strategic Fit (1-10) | **TOTAL (50)** |
+|------|------------|-------------|--------------------|--------------------|------------------------|------------------------|---------------------|----------------|
+| 1 | [name] | XX% | X | X | X | X | X | **XX** |
+| 2 | [name] | XX% | X | X | X | X | X | **XX** |
+| 3 | [name] | XX% | X | X | X | X | X | **XX** |
+| 4 | [name] | XX% | X | X | X | X | X | **XX** |
+| 5 | [name] | XX% | X | X | X | X | X | **XX** |
 
 Scoring criteria definitions:
+- **Viability %:** Weighted probability of success within 3 years (from each opportunity's Viability Score section)
 - **Feasibility:** Technical + operational complexity, resource requirements
 - **Market Size:** TAM magnitude and growth trajectory
 - **Speed to Revenue:** Time to first dollar, break-even timeline
