@@ -84,7 +84,7 @@ Return ONLY the JSON object, nothing else."""
         preferred_model=preferred_model,
     )
 
-    # ── Parse JSON (handle fenced code blocks gracefully) ──
+    # ── Parse JSON (handle fenced code blocks, trailing text, etc.) ──
     cleaned = raw.strip()
     if cleaned.startswith("```"):
         cleaned = re.sub(r"^```[\w]*\n?", "", cleaned)
@@ -94,9 +94,28 @@ Return ONLY the JSON object, nothing else."""
     try:
         parsed = json.loads(cleaned)
     except json.JSONDecodeError:
+        # Strip trailing content after last closing brace and retry
         match = re.search(r"\{.*\}", cleaned, re.DOTALL)
         if match:
-            parsed = json.loads(match.group())
+            candidate = match.group()
+            try:
+                parsed = json.loads(candidate)
+            except json.JSONDecodeError:
+                # Brace-counting: find the minimal valid JSON object
+                depth = 0
+                for i, ch in enumerate(candidate):
+                    if ch == "{":
+                        depth += 1
+                    elif ch == "}":
+                        depth -= 1
+                        if depth == 0:
+                            try:
+                                parsed = json.loads(candidate[: i + 1])
+                                break
+                            except json.JSONDecodeError:
+                                continue
+                else:
+                    raise ValueError(f"LLM did not return valid JSON:\n{raw[:500]}")
         else:
             raise ValueError(f"LLM did not return valid JSON:\n{raw[:500]}")
 

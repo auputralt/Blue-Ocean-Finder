@@ -8,6 +8,7 @@ load_dotenv()
 # ── API Keys ───────────────────────────────────────────────
 OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
 OPENROUTER_MODEL: str = os.getenv("OPENROUTER_MODEL", "openrouter/free")
+DEFAULT_MODEL: str = "openrouter/free"
 TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")
 
 # ── Free model fallback chain (tried in order until one works) ──

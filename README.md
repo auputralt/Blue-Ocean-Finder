@@ -4,14 +4,14 @@ emoji: "\U0001F30A"
 colorFrom: blue
 colorTo: blue
 sdk: gradio
-sdk_version: "5.29.0"
+sdk_version: "6.14.0"
 app_file: app.py
 pinned: false
 ---
 
-# 🌊 AI Blue Ocean Finder
+# AI Blue Ocean Finder
 
-Discover uncontested market spaces with AI-powered strategic analysis. This tool produces McKinsey/BCG-grade Blue Ocean Strategy reports — market sizing, unit economics, competitive blind spots, go-to-market roadmaps — all grounded in real-time web research.
+Discover uncontested market spaces with AI-powered strategic analysis. Produces McKinsey/BCG-grade Blue Ocean Strategy reports — market sizing, unit economics, competitive blind spots, go-to-market roadmaps — all grounded in real-time web research.
 
 **Try it live:** [namaakaisekai-ai-blue-ocean-finder.hf.space](https://namaakaisekai-ai-blue-ocean-finder.hf.space)
 
@@ -19,20 +19,20 @@ Discover uncontested market spaces with AI-powered strategic analysis. This tool
 
 1. **Research Brief Enhancement** — Turns your industry + location into a hypothesis-driven consulting brief
 2. **10x Parallel Web Search** — Runs 10 simultaneous searches (5 primary + 5 financial deep-dives) via Tavily
-3. **Blue Ocean Synthesis** — Generates 5 hidden opportunities with TAM→SAM→SOM sizing, unit economics, ERRC frameworks, risk matrices, and 4-phase GTM roadmaps
+3. **Blue Ocean Synthesis** — Generates 5 hidden opportunities with TAM/SAM/SOM sizing, unit economics, ERRC frameworks, risk matrices, and 4-phase GTM roadmaps
 4. **Follow-up Q&A** — Ask any strategic question and get partner-level answers grounded in the data
 5. **Export** — Download as PDF, Word (.docx), or Markdown
 
 ## Sample Output Per Opportunity
 
-- 🔍 **Hidden Insight** — Contrarian data-driven opening (McKinsey partner style)
-- 📊 **Market Gap Analysis** — TAM/SAM/SOM with methodology, competitive blind spots
-- 🎯 **Target Audience Profile** — Demographics, psychographics, willingness-to-pay
-- 🔄 **ERRC Value Innovation Grid** — Eliminate/Reduce/Raise/Create with impact
-- 💰 **Financial Architecture** — Startup cost breakdown, unit economics (CAC, LTV, payback), revenue projections
-- 🚀 **GTM Roadmap** — 4 phases from MVP validation to market dominance
-- ⚠️ **Risk Matrix** — Probability × impact with mitigation strategies
-- 📎 **Evidence & Sources** — 5+ sourced claims per opportunity
+- **Hidden Insight** — Contrarian data-driven opening (McKinsey partner style)
+- **Market Gap Analysis** — TAM/SAM/SOM with methodology, competitive blind spots
+- **Target Audience Profile** — Demographics, psychographics, willingness-to-pay
+- **ERRC Value Innovation Grid** — Eliminate/Reduce/Raise/Create with impact
+- **Financial Architecture** — Startup cost breakdown, unit economics (CAC, LTV, payback), revenue projections
+- **GTM Roadmap** — 4 phases from MVP validation to market dominance
+- **Risk Matrix** — Probability x impact with mitigation strategies
+- **Evidence & Sources** — 5+ sourced claims per opportunity
 
 Plus a **Strategic Prioritization Matrix** ranking all 5 by Feasibility, Market Size, Speed, Moat, and Strategic Fit.
 
@@ -45,7 +45,7 @@ researcher.py   — 10x parallel Tavily searches with enrichment
 synthesizer.py  — Blue Ocean synthesis + follow-up Q&A (OpenRouter)
 exporter.py     — PDF, Word, Markdown export
 database.py     — SQLite storage, history, favorites
-config.py       — API keys, endpoints, branches
+config.py       — API keys, endpoints, model fallback chain
 utils.py        — Date, text, formatting helpers
 ```
 
@@ -100,8 +100,8 @@ Open `http://localhost:7860` in your browser.
 
 ## Tech Stack
 
-- **Frontend:** Gradio (dark theme, mobile-responsive CSS)
-- **LLM:** OpenRouter (any model — default: free tier)
+- **Frontend:** Gradio 6 (dark theme, mobile-responsive CSS)
+- **LLM:** OpenRouter (`openrouter/free` with fallback chain)
 - **Search:** Tavily API (advanced search depth)
 - **Storage:** SQLite (local, zero config)
 - **Export:** fpdf2 (PDF), python-docx (Word), native Markdown
